@@ -5,9 +5,17 @@
 # Unified daily collector for LogSpace capacity analytics (MaxPatrol SIEM,
 # Event Storage role). Run it on the MP SIEM Events Storage server.
 #
-# Everything goes into ONE tidy CSV file, OVERWRITTEN on every run: it holds
-# only the latest run. History is kept on the workstation in an Excel master
-# file (rows of each daily CSV are appended to it by hand):
+# Each run writes a NEW tidy CSV file named after the run date, so files of
+# several days (e.g. a weekend) are kept until they are copied:
+#
+#   logspace_metrics_<run date>.csv                      daily run
+#   logspace_metrics_<run date>_day_<day>.csv            -d <day>
+#   logspace_metrics_<run date>_backfill_<from>_<to>.csv -f <from> -t <to>
+#   logspace_metrics_<run date>_snapshot.csv             -S
+#
+# A re-run in the same mode on the same date overwrites that day's file.
+# History is kept on the workstation in an Excel master file (rows of each
+# CSV are appended to it by hand). File format:
 #
 #   collected_at;metric_date;record_type;key;value
 #
@@ -29,17 +37,17 @@
 #   ./collect_logspace_metrics.sh                         # yesterday + snapshot
 #   ./collect_logspace_metrics.sh -d 2026-10-12           # given day + snapshot
 #   ./collect_logspace_metrics.sh -f 2026-01-01 -t 2026-10-12   # backfill
-#   ./collect_logspace_metrics.sh -o /path/logspace_metrics.csv
+#   ./collect_logspace_metrics.sh -o /path/to/dir         # output directory
 #   ./collect_logspace_metrics.sh -S                      # snapshot only (no events)
 #
-# Environment overrides: OUT_FILE, LOG_FILE, BACKUP_TOOL, LS_CLIENT,
+# Environment overrides: OUT_DIR, LOG_FILE, BACKUP_TOOL, LS_CLIENT,
 #                        DATA_PATH, COLD_PATH, TAILCUTTER_LOG
 # =============================================================================
 
 set -uo pipefail
 
 # ---------- defaults ----------
-OUT_FILE="${OUT_FILE:-$(pwd)/logspace_metrics.csv}"
+OUT_DIR="${OUT_DIR:-$(pwd)}"                    # one CSV per run date goes here
 LOG_FILE="${LOG_FILE:-$(pwd)/logspace_metrics.log}"
 BACKUP_TOOL="${BACKUP_TOOL:-/opt/dbtools/bin/backup_tool}"
 LS_CLIENT="${LS_CLIENT:-logspace-client}"
@@ -63,7 +71,7 @@ while getopts "d:f:t:o:Sh" opt; do
         d) DAY="$OPTARG" ;;
         f) FROM="$OPTARG" ;;
         t) TO="$OPTARG" ;;
-        o) OUT_FILE="$OPTARG" ;;
+        o) OUT_DIR="$OPTARG" ;;
         S) SNAPSHOT_ONLY=1 ;;
         *) usage ;;
     esac
@@ -98,6 +106,21 @@ if [ "$SNAPSHOT_ONLY" -eq 0 ]; then
         DAYS=("$(date -d yesterday +%F)")
     fi
 fi
+
+# ---------- output file: one per run date ----------
+# Manual runs get a suffix, so a re-run for a missed day does not overwrite
+# the daily file of the same date.
+[ -d "$OUT_DIR" ] || { log "ERROR: output directory $OUT_DIR does not exist"; exit 1; }
+if [ "$SNAPSHOT_ONLY" -eq 1 ]; then
+    SUFFIX="_snapshot"
+elif [ -n "$FROM" ]; then
+    SUFFIX="_backfill_${FROM}_${TO}"
+elif [ -n "$DAY" ]; then
+    SUFFIX="_day_${DAY}"
+else
+    SUFFIX=""
+fi
+OUT_FILE="${OUT_DIR}/logspace_metrics_$(date +%F)${SUFFIX}.csv"
 
 # One timestamp for the whole run: lets the notebook group a snapshot together
 TS="$(date '+%d.%m.%Y %H:%M:%S')"
@@ -198,11 +221,11 @@ fi
 echo "$TS;$TODAY_DMY;health;tailcutter_log_age_min;$age" >> "$BUF"
 log "OK: health -> cron=$cron log_age_min=$age"
 
-# ---------- write (overwrite: previous content is replaced) ----------
+# ---------- write (new file per run date; a same-date re-run overwrites it) ----------
 {
     echo "collected_at;metric_date;record_type;key;value"
     cat "$BUF"
 } > "$OUT_FILE"
 
-log "Run finished: $(wc -l < "$BUF") rows written to $OUT_FILE (previous content replaced), status=$([ $FAILED -eq 0 ] && echo OK || echo PARTIAL)"
+log "Run finished: $(wc -l < "$BUF") rows written to $OUT_FILE, status=$([ $FAILED -eq 0 ] && echo OK || echo PARTIAL)"
 exit $FAILED
