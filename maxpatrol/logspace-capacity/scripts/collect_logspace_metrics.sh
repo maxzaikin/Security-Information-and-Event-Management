@@ -5,7 +5,9 @@
 # Unified daily collector for LogSpace capacity analytics (MaxPatrol SIEM,
 # Event Storage role). Run it on the MP SIEM Events Storage server.
 #
-# Everything goes into ONE tidy CSV file (appended, never rewritten):
+# Everything goes into ONE tidy CSV file, OVERWRITTEN on every run: it holds
+# only the latest run. History is kept on the workstation in an Excel master
+# file (rows of each daily CSV are appended to it by hand):
 #
 #   collected_at;metric_date;record_type;key;value
 #
@@ -196,12 +198,11 @@ fi
 echo "$TS;$TODAY_DMY;health;tailcutter_log_age_min;$age" >> "$BUF"
 log "OK: health -> cron=$cron log_age_min=$age"
 
-# ---------- write (append under lock, header only for a new file) ----------
-(
-    flock -x 9
-    [ -s "$OUT_FILE" ] || echo "collected_at;metric_date;record_type;key;value" > "$OUT_FILE"
-    cat "$BUF" >> "$OUT_FILE"
-) 9>>"$OUT_FILE.lock"
+# ---------- write (overwrite: previous content is replaced) ----------
+{
+    echo "collected_at;metric_date;record_type;key;value"
+    cat "$BUF"
+} > "$OUT_FILE"
 
-log "Run finished: $(wc -l < "$BUF") rows appended, status=$([ $FAILED -eq 0 ] && echo OK || echo PARTIAL)"
+log "Run finished: $(wc -l < "$BUF") rows written to $OUT_FILE (previous content replaced), status=$([ $FAILED -eq 0 ] && echo OK || echo PARTIAL)"
 exit $FAILED
