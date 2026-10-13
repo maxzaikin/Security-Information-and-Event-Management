@@ -1,0 +1,55 @@
+# =============================================================================
+# Claude Code: nothing Claude-related is ever committed
+# (instructions, skills, rules, memory, settings, sessions, plans, worktrees)
+# =============================================================================
+CLAUDE.md
+CLAUDE.local.md
+**/CLAUDE.md
+**/CLAUDE.local.md
+.claude/
+**/.claude/
+.mcp.json
+
+# =============================================================================
+# Real SIEM data: never committed
+# =============================================================================
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.json.gz
+*.log
+*.lock
+*.pcap
+*.evtx
+data/
+exports/
+raw/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# =============================================================================
+# Python / Jupyter
+# =============================================================================
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+.pytest_cache/
+
+# =============================================================================
+# OS / editors
+# =============================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

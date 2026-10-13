@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Remove AI attribution trailers from commit messages:
+# Co-Authored-By lines that mention Claude/Anthropic and Claude-Session links.
+# Enable once per clone:  git config core.hooksPath .githooks
+msg_file="$1"
+tmp="$(mktemp)"
+grep -viE '^(Co-Authored-By:.*(claude|anthropic)|Claude-Session:|.*Generated with \[?Claude Code)' "$msg_file" > "$tmp"
+# Drop trailing blank lines left after the removal
+sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$tmp" > "$msg_file"
+rm -f "$tmp"

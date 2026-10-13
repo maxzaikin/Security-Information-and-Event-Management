@@ -1,0 +1,7 @@
+pandas>=2.0
+numpy
+scipy
+matplotlib
+tqdm
+openpyxl
+# torch   # optional: enables the LSTM model
