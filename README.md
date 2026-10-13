@@ -55,8 +55,6 @@ Areas covered across platforms:
 
 - Code comments and READMEs are in English; operational methodology may be in the team's language.
 - Scripts that run on production servers are read-only by default and state explicitly when they change anything.
-- No real data is committed: event exports, metrics files, hostnames, IP addresses and credentials stay out of git
-  (see [`.gitignore`](.gitignore)).
 - Vendor documentation is referenced, not copied.
 - Notebooks are committed without outputs.
 
