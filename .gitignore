@@ -53,3 +53,10 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# =============================================================================
+# Local-only working data for analysis (exports, inventories, samples).
+# Never committed: also blocked by .githooks/pre-commit and .git/info/exclude.
+# =============================================================================
+_private/
+**/_private/

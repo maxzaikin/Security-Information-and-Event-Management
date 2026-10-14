@@ -4,4 +4,4 @@ scipy
 matplotlib
 tqdm
 openpyxl
-# torch   # optional: enables the LSTM model
+statsmodels   # SARIMAX model; the notebook skips it if not installed

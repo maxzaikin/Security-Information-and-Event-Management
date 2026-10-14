@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Block commits that contain Claude Code files or notebooks with outputs.
+# Block commits that contain Claude Code files, local-only _private/ data
+# or notebooks with outputs.
 # Enable once per clone:  git config core.hooksPath .githooks
 fail=0
 
@@ -12,7 +13,16 @@ if [ -n "$claude_files" ]; then
     fail=1
 fi
 
-# 2. Jupyter notebooks with outputs (outputs may contain real SIEM data)
+# 2. Local-only analysis data in _private/ (even if force-added with `git add -f`)
+private_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)_private/')
+if [ -n "$private_files" ]; then
+    echo "pre-commit: files from _private/ must never be committed:" >&2
+    echo "$private_files" | sed 's/^/  /' >&2
+    echo "  unstage with: git restore --staged <file>" >&2
+    fail=1
+fi
+
+# 3. Jupyter notebooks with outputs (outputs may contain real SIEM data)
 for nb in $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.ipynb$'); do
     if git show ":$nb" | python3 -c '
 import json, sys
