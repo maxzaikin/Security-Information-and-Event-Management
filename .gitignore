@@ -60,3 +60,9 @@ desktop.ini
 # =============================================================================
 _private/
 **/_private/
+
+# Working copies of notebooks with real data (outputs, hostnames, volumes): never committed
+*_real_data.ipynb
+**/*_real_data.ipynb
+# Exported charts and tables of the capacity notebook contain real volumes
+maxpatrol/logspace-capacity/**/export/

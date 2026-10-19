@@ -1,7 +1,7 @@
 pandas>=2.0
 numpy
 scipy
-matplotlib
+plotly        # interactive charts, exported as HTML
 tqdm
 openpyxl
 statsmodels   # SARIMAX model; the notebook skips it if not installed

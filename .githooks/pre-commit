@@ -14,9 +14,9 @@ if [ -n "$claude_files" ]; then
 fi
 
 # 2. Local-only analysis data in _private/ (even if force-added with `git add -f`)
-private_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)_private/')
+private_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)_private/|_real_data\.ipynb$')
 if [ -n "$private_files" ]; then
-    echo "pre-commit: files from _private/ must never be committed:" >&2
+    echo "pre-commit: local-only files (_private/, *_real_data.ipynb) must never be committed:" >&2
     echo "$private_files" | sed 's/^/  /' >&2
     echo "  unstage with: git restore --staged <file>" >&2
     fail=1

@@ -42,7 +42,7 @@
    30 12 * * * cd /opt/siem-metrics && ./collect_logspace_metrics.sh >> cron.out 2>&1
    ```
   
-5. На рабочей станции: `pip install pandas numpy scipy matplotlib tqdm openpyxl statsmodels`. Без `statsmodels` ноутбук работает, но пропускает модель SARIMAX.
+5. На рабочей станции: `pip install -r requirements.txt` (pandas, numpy, scipy, plotly, tqdm, openpyxl, statsmodels). Без `statsmodels` ноутбук работает, но пропускает модель SARIMAX.
 6. Старую историю из Excel можно подключить: в ноутбуке задайте `LEGACY_XLSX = Path("eps.xlsx")`. Данные скрипта имеют приоритет над ней.
 
 ## 3. Ежедневный регламент (5–10 минут)
