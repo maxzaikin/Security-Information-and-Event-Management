@@ -34,7 +34,7 @@
 #   health     : rotation health indicators (tailcutter cron, log age)
 #
 # Usage:
-#   ./collect_logspace_metrics.sh                         # yesterday + snapshot
+#   ./collect_logspace_metrics.sh                         # yesterday (UTC day) + snapshot
 #   ./collect_logspace_metrics.sh -d 2026-10-12           # given day + snapshot
 #   ./collect_logspace_metrics.sh -f 2026-01-01 -t 2026-10-12   # backfill
 #   ./collect_logspace_metrics.sh -o /path/to/dir         # output directory
@@ -103,7 +103,9 @@ if [ "$SNAPSHOT_ONLY" -eq 0 ]; then
         is_iso_date "$DAY" || { log "ERROR: -d must be a valid date YYYY-MM-DD"; exit 1; }
         DAYS=("$DAY")
     else
-        DAYS=("$(date -d yesterday +%F)")
+        # LogSpace days (_eventDate, partitions) are UTC days: take yesterday by UTC, so the day is already
+        # over at any run time (at 00:30 local on a UTC+11 server the local "yesterday" is still being written)
+        DAYS=("$(date -u -d yesterday +%F)")
     fi
 fi
 

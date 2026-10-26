@@ -19,7 +19,7 @@ On the Events Storage server:
 
 ```bash
 chmod +x scripts/collect_logspace_metrics.sh
-./scripts/collect_logspace_metrics.sh -f 2026-01-01 -t "$(date -d yesterday +%F)"   # one-time backfill
+./scripts/collect_logspace_metrics.sh -f 2026-01-01 -t "$(date -u -d yesterday +%F)"   # one-time backfill
 ./scripts/collect_logspace_metrics.sh                                                 # daily (cron)
 ```
 

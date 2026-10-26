@@ -71,7 +71,7 @@ Rows for the same `record_type + metric_date + key` from different runs are reso
 
 | Option | Meaning |
 |---|---|
-| *(none)* | Events for **yesterday** (by the server's OS clock) + snapshot (partitions, disk, health) |
+| *(none)* | Events for **yesterday by UTC** (LogSpace days are UTC days) + snapshot (partitions, disk, health) |
 | `-d YYYY-MM-DD` | Events for that day + snapshot |
 | `-f YYYY-MM-DD -t YYYY-MM-DD` | Events for every day in the range (one query per day) + snapshot. Both are required. Takes precedence over `-d` |
 | `-S` | Snapshot only, no events query |
@@ -163,7 +163,7 @@ A run in a clean environment shows what cron will see (empty environment, minima
 ```bash
 sudo -u <user> env -i HOME=/tmp PATH=/usr/bin:/bin SHELL=/bin/sh \
   LOG_FILE=/opt/siem-metrics/logspace_metrics.log \
-  /opt/siem-metrics/collect_logspace_metrics.sh -d "$(date -d yesterday +%F)" -o /opt/siem-metrics/out
+  /opt/siem-metrics/collect_logspace_metrics.sh -d "$(date -u -d yesterday +%F)" -o /opt/siem-metrics/out
 echo "exit=$?"
 ```
 
@@ -184,18 +184,25 @@ Expected: `exit=0`, lines `OK: events …`, `OK: listpart …`, `OK: df …`, `O
 
 ## When to run: the day boundary
 
-The default run collects **yesterday by the server's OS clock** (`date -d yesterday`). LogSpace splits days by `_eventDate`, which is computed from the event time without an explicit time zone. On the checked server LogSpace `now()` returned UTC, so `_eventDate` is most likely a **UTC day**. This is a conclusion from ClickHouse rules, not verified LogSpace behaviour; `SELECT toUnixTimestamp(min(time)), toUnixTimestamp(max(time)) FROM siem.events WHERE _eventDate = '<day>'` settles it.
+LogSpace splits days by `_eventDate` and keeps one partition per day; both are **UTC days** (LogSpace `now()`
+returns UTC). On a server whose OS clock is local, say UTC+11, a run at 00:30 local is 13:30 UTC of the previous day:
+"yesterday" by the OS clock has only 13.5 of its 24 hours in LogSpace. The event counts come out partial (and D,
+bytes ÷ events, too high), and that day's partition in the same snapshot is about half its usual size.
 
-So "yesterday" is complete only when the UTC day is over. Check the server's OS clock:
+Therefore the default run collects **yesterday by UTC** (`date -u -d yesterday`). That day is over at any run time:
 
-```bash
-date; date -u; timedatectl | grep "Time zone"
-```
+| Run at (UTC+11 server) | UTC time | Day collected | Complete? |
+|---|---|---|---|
+| 00:30 local, 26.10 | 13:30, 25.10 | 24.10 | yes, ended 13.5 h ago |
+| 12:30 local, 26.10 | 01:30, 26.10 | 25.10 | yes, ended 1.5 h ago |
 
-| OS time zone | Yesterday is complete from | Example for UTC+11 |
-|---|---|---|
-| UTC (`date` = `date -u`) | any time | 08:00 local = 21:00 UTC of the previous day; "yesterday" by OS clock is the day before that, already closed |
-| local, UTC+11 | 11:00 local | run at 12:30, or earlier with `-d` for the day before yesterday |
+Check the server's OS clock with `date; date -u; timedatectl | grep "Time zone"`. On a server that runs in UTC
+`date -u -d yesterday` is the same as `date -d yesterday`.
+
+Manual modes take the day you give: `-d <day>` and `-f … -t …` are UTC days. Do not ask for the current UTC day
+(`date -u +%F`): it is still being written. Days collected by an older version of the script at night are
+incomplete; re-collect them once with `-f <first> -t <last>` — any time later is fine, the notebook keeps the newer
+rows and ignores event counts taken before their UTC day was over.
 
 Events that arrive late (agent buffers, a source coming back after an outage) are still added to their day after the run. Re-running `-d <day>` the next day picks them up; the notebook takes the newer value.
 
@@ -234,7 +241,7 @@ Or in the account's own crontab (`crontab -e` as that account, **no** user field
 30 12 * * * LOG_FILE=/opt/siem-metrics/logspace_metrics.log LS_CLIENT=/full/path/logspace-client /opt/siem-metrics/collect_logspace_metrics.sh -o /opt/siem-metrics/out >> /opt/siem-metrics/cron.out 2>&1
 ```
 
-- **Time:** pick it from [the day boundary](#when-to-run-the-day-boundary). 12:30 is safe for both cases at UTC+11.
+- **Time:** any. The default run takes yesterday by UTC, which is always complete ([the day boundary](#when-to-run-the-day-boundary)). With a run at 12:30 local on a UTC+11 server the data is one day fresher than with 00:30.
 - **Full paths everywhere:** cron runs with a minimal environment (`PATH=/usr/bin:/bin`) from the home directory.
 - **Whose crontab:** `crontab -e` edits the current user's, `sudo crontab -e` root's, `sudo crontab -u <user> -e` that user's. `crontab -l` / `sudo crontab -l` show what is installed.
 - **"Permission denied" / "not allowed to use this program" on `crontab -e`:** cron access is limited by `/etc/cron.allow` (if it exists, only listed users may use `crontab`) and `/etc/cron.deny`. Check with `ls -l /etc/cron.allow /etc/cron.deny`; add the account with `echo <user> | sudo tee -a /etc/cron.allow`. If the message is different, look at the exact text first.
@@ -253,7 +260,7 @@ The first, backfill file goes into the Excel file **with** its header — that i
 Once, off-hours:
 
 ```bash
-/opt/siem-metrics/collect_logspace_metrics.sh -f 2026-01-01 -t "$(date -d yesterday +%F)" -o /opt/siem-metrics/out
+/opt/siem-metrics/collect_logspace_metrics.sh -f 2026-01-01 -t "$(date -u -d yesterday +%F)" -o /opt/siem-metrics/out
 ```
 
 - Start date: the oldest partition in `backup_tool --cmd listpart`.
@@ -262,7 +269,7 @@ Once, off-hours:
 ---
 
 ## Limits and open questions
-- **Time zone of `_eventDate`** — most likely UTC, not verified (see [the day boundary](#when-to-run-the-day-boundary)).
+- **Time zone of `_eventDate`** — UTC: confirmed by the incomplete night run on a UTC+11 server (see [the day boundary](#when-to-run-the-day-boundary)); the script now takes yesterday by UTC.
 - **`listpart` bytes vs real disk usage** — not documented; the notebook compares `df used` with the sum of partitions (section 3) and shows the ratio.
 - **Hybrid storage:** `cold_*` disk rows are collected, but how tailcutter counts the cold storage against its limit is unknown; the notebook forecasts the main path only.
 - **Tailcutter in cron as non-root** — see [Account and permissions](#account-and-permissions).
